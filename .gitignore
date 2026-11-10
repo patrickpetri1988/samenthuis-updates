@@ -1,0 +1,29 @@
+# Generated build files and local tooling
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+**/build/
+**/.gradle/
+**/.kotlin/
+.idea/
+*.iml
+# Signing material - NEVER commit
+*.jks
+*.keystore
+key.properties
+*.pem
+*.p12
+
+# Lokale Firebase-instellingen
+.firebase/
+
+# Geheime configuratiebestanden
+.env
+.env.*
+*service-account*.json
+*serviceAccount*.json
+google-services-key.json

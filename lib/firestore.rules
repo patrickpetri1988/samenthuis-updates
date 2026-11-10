@@ -1,0 +1,100 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function self(uid) { return signedIn() && request.auth.uid == uid; }
+    function admin() { return signedIn() && request.auth.uid == 'HhX3KZonPzdluxL0B8RJ42Bpdsf2'; }
+    function premium(uid) {
+      return exists(/databases/$(database)/documents/premiumHandmatig/$(uid))
+        && get(/databases/$(database)/documents/premiumHandmatig/$(uid)).data.actief == true;
+    }
+    function validLanguage() {
+      return request.resource.data.taal in ['nl','en','de','fr','es','it'];
+    }
+    function validUsername() {
+      return request.resource.data.gebruikersnaam is string
+        && request.resource.data.gebruikersnaam.matches('^[a-z0-9_]{3,20}$')
+        && getAfter(/databases/$(database)/documents/gebruikersnamen/$(request.resource.data.gebruikersnaam)).data.uid == request.auth.uid;
+    }
+    match /gebruikers/{gebruikerId} {
+      allow read: if self(gebruikerId);
+      allow create: if self(gebruikerId)
+        && request.resource.data.keys().hasOnly(['taal', 'gebruikersnaam'])
+        && ( !('taal' in request.resource.data) || validLanguage() )
+        && ( !('gebruikersnaam' in request.resource.data) || validUsername() );
+      allow update: if self(gebruikerId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['taal','gebruikersnaam'])
+        && (!('taal' in request.resource.data.diff(resource.data).affectedKeys()) || validLanguage())
+        && (!('gebruikersnaam' in request.resource.data.diff(resource.data).affectedKeys())
+          || (!('gebruikersnaam' in resource.data) && validUsername()));
+      allow delete: if false;
+      match /boodschappen/{boodschapId} {
+        allow read, write: if self(gebruikerId);
+      }
+    }
+    match /gebruikersnamen/{naam} {
+      allow read: if admin();
+      allow create: if signedIn()
+        && naam.matches('^[a-z0-9_]{3,20}$')
+        && request.resource.data.keys().hasOnly(['uid'])
+        && request.resource.data.uid == request.auth.uid
+        && getAfter(/databases/$(database)/documents/gebruikers/$(request.auth.uid)).data.gebruikersnaam == naam;
+      allow update, delete: if false;
+    }
+    match /premiumHandmatig/{uid} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create, update: if admin()
+        && request.resource.data.keys().hasOnly(['actief','gewijzigdOp','gewijzigdDoor'])
+        && request.resource.data.actief is bool
+        && request.resource.data.gewijzigdDoor == request.auth.uid
+        && request.resource.data.gewijzigdOp == request.time;
+      allow delete: if false;
+    }
+    match /huishoudens/{huishoudenId} {
+      allow get: if signedIn();
+      allow list: if signedIn()
+        && request.auth.uid in resource.data.leden
+        && request.query.limit != null && request.query.limit <= 1;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['naam','eigenaarId','leden','aangemaaktOp'])
+        && request.resource.data.naam == 'Ons huishouden'
+        && request.resource.data.eigenaarId == request.auth.uid
+        && request.resource.data.leden == [request.auth.uid]
+        && request.resource.data.aangemaaktOp == request.time;
+      allow update: if signedIn()
+        && resource.data.leden is list
+        && !(request.auth.uid in resource.data.leden)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['leden'])
+        && request.resource.data.leden == resource.data.leden.concat([request.auth.uid])
+        && resource.data.leden.size() < (premium(resource.data.eigenaarId) ? 5 : 2);
+      allow delete: if false;
+      match /boodschappen/{boodschapId} {
+        function member() {
+          return signedIn() && request.auth.uid in
+            get(/databases/$(database)/documents/huishoudens/$(huishoudenId)).data.leden;
+        }
+        allow read: if member();
+        allow create: if member()
+          && request.resource.data.keys().hasAll(['naam','gekocht','aangemaaktOp'])
+          && request.resource.data.keys().hasOnly(['naam','gekocht','aangemaaktOp','aantal','categorie','categorieHandmatig'])
+          && request.resource.data.naam is string
+          && request.resource.data.naam.size() > 0
+          && request.resource.data.naam.size() <= 150
+          && request.resource.data.gekocht is bool
+          && (!('aantal' in request.resource.data) || (request.resource.data.aantal is int && request.resource.data.aantal >= 1 && request.resource.data.aantal <= 999))
+          && (!('categorie' in request.resource.data) || request.resource.data.categorie in [
+            'Groente en fruit','Broodbeleg','Brood','Koeling','Diepvries',
+            'Drinken','Huishoudelijk','Snoep en snacks','Overige',
+            'Zuivel','Vlees en vis','Huishouden','Overig'])
+          && (!('categorieHandmatig' in request.resource.data) || request.resource.data.categorieHandmatig is bool)
+          && request.resource.data.aangemaaktOp == request.time;
+        allow update: if member()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['gekocht'])
+          && request.resource.data.gekocht is bool;
+        allow delete: if member();
+      }
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

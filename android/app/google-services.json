@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "972951255590",
+    "project_id": "samenthuis-f1c49",
+    "storage_bucket": "samenthuis-f1c49.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:972951255590:android:12f056fae78b6057a784e7",
+        "android_client_info": {
+          "package_name": "com.example.samen_thuis"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAr1rBMFd4icqXP2MFfFQesuDcWCxdmrPw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
